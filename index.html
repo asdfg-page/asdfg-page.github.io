@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>근무 매칭표 생성기</title>
+    <style>
+        /* --- 기본 스타일 및 레이아웃 --- */
+        body { 
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; 
+            margin: 0; padding: 15px; 
+            line-height: 1.6; color: #333; 
+            background-color: #f0f2f5; 
+        }
+        .container { 
+            max-width: 1100px; margin: 0 auto; 
+            background: #fff; padding: 25px; 
+            border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); 
+        }
+
+        h1 { color: #1a2a6c; font-size: 1.6rem; border-bottom: 3px solid #4CAF50; padding-bottom: 10px; margin-top: 0; }
+        h3 { margin: 15px 0 5px 0; font-size: 15px; color: #2c3e50; font-weight: bold; }
+        .guide-text { font-size: 11px; color: #999; margin-bottom: 5px; }
+
+        /* 입력창 크기 조절 금지 및 스타일 */
+        textarea, input { 
+            width: 100%; margin-bottom: 10px; 
+            box-sizing: border-box; padding: 12px; 
+            border: 1px solid #ddd; border-radius: 6px; 
+            font-size: 14px; background: #fafafa;
+            transition: border-color 0.2s;
+            resize: none; /* 사용자가 드래그로 크기 조절 불가 */
+            overflow-y: hidden; /* 스크롤바 숨김 (자바스크립트로 높이 조절) */
+            min-height: 45px; /* 최소 높이 설정 */
+        }
+        textarea:focus, input:focus { border-color: #4CAF50; outline: none; background: #fff; }
+
+        /* --- 그리드 레이아웃 --- */
+        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+        /* --- 버튼 스타일 (높이 75px 반영) --- */
+        .btn-group { 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            gap: 12px; 
+            margin: 30px 0; 
+        }
+
+        button { 
+            flex: 1; 
+            max-width: 300px; 
+            height: 50px;  
+            min-height: 50px; 
+            font-size: 18px; 
+            cursor: pointer; 
+            border: none; 
+            border-radius: 12px; 
+            font-weight: 800; 
+            transition: all 0.2s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        button:active { transform: translateY(2px); box-shadow: 0 2px 3px rgba(0,0,0,0.1); }
+        
+        button:first-child { background-color: #4CAF50; color: white; }
+        #colorToggle { background-color: #3498db; color: white; }
+
+        /* --- 반응형 브레이크 포인트 --- */
+        @media (max-width: 767px) {
+            .input-grid { grid-template-columns: 1fr; gap: 10px; }
+            .btn-group { flex-direction: column; }
+            button { max-width: 100%; width: 100%; height: 70px; }
+            h1 { font-size: 1.3rem; }
+        }
+
+        /* --- 테이블 스타일 --- */
+        .note { 
+            font-size: 13px; color: #555; background: #e8f5e9; 
+            padding: 15px; border-radius: 8px; margin-bottom: 20px;
+            border-left: 5px solid #4CAF50;
+        }
+        .table-wrapper { width: 100%; overflow-x: auto; margin-top: 20px; }
+        table { border-collapse: collapse; width: 100%; min-width: 350px; margin-bottom: 50px; }
+        th, td { border: 1px solid #eee; text-align: center; padding: 12px 8px; }
+        th { background: #f8f9fa; color: #666; font-size: 14px; }
+        
+        .person-cell { cursor: pointer; font-weight: bold; position: relative; transition: background-color 0.2s; }
+        .highlight { outline: 3px solid #333; z-index: 5; transform: scale(1.02); }
+        .dimmed { opacity: 0.2; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>근무 매칭표 생성기</h1>
+
+    <div class="input-grid">
+        <div>
+            <h3>현시점 사수 명단</h3>
+            <div class="guide-text">쉼표(,)로 구분</div>
+            <textarea id="seniors" placeholder="예: 김사수, 이사수, 박사수, 최사수, 정사수, 강사수" oninput="autoResize(this)"></textarea>
+        </div>
+        <div>
+            <h3>현시점 부사수 명단</h3>
+            <div class="guide-text">쉼표(,)로 구분</div>
+            <textarea id="juniors" placeholder="예: 박부사, 최부사, 정부사, 강부사, 조부사, 윤부사" oninput="autoResize(this)"></textarea>
+        </div>
+        <div>
+            <h3>이전 사수 기록 (누적)</h3>
+            <div class="guide-text">이전 명단 복사 붙여넣기</div>
+            <textarea id="prevSeniors" placeholder="기록이 많을수록 이번 배정 후순위" oninput="autoResize(this)"></textarea>
+        </div>
+        <div>
+            <h3>이전 부사수 기록 (누적)</h3>
+            <div class="guide-text">이전 명단 복사 붙여넣기</div>
+            <textarea id="prevJuniors" placeholder="기록이 많을수록 이번 배정 후순위" oninput="autoResize(this)"></textarea>
+        </div>
+        <div>
+            <h3>같이 못 타는 조합</h3>
+            <div class="guide-text">사수명,부사수명 (줄바꿈 구분)</div>
+            <textarea id="forbidden" placeholder="김사수,박부사" oninput="autoResize(this)"></textarea>
+        </div>
+        <div class="input-grid" style="gap:10px;">
+            <div>
+                <h3>생성 일수</h3>
+                <input type="number" id="days" value="7">
+            </div>
+            <div>
+                <h3>사수/부사수 텀 (Cooldown)</h3>
+                <div style="display:flex; gap:5px;">
+                    <input type="number" id="cooldownS" value="2" title="사수 텀">
+                    <input type="number" id="cooldownJ" value="2" title="부사수 텀">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h3>날짜별 특이사항</h3>
+    <div class="guide-text">1,이사수,외출 / 2,김부사,사격 (슬래시 / 구분)</div>
+    <textarea id="conditions" placeholder="예: 1,이사수,외출 / 3,정부사,사격" oninput="autoResize(this)"></textarea>
+
+    <div class="btn-group">
+        <button onclick="generate()">✨ 근무표 생성</button>
+        <button id="colorToggle" onclick="toggleColor()">🎨 색상 On/Off</button>
+    </div>
+
+    <div id="result" class="table-wrapper"></div>
+</div>
+
+<script>
+/* --- 입력창 자동 높이 조절 함수 --- */
+function autoResize(textarea) {
+    textarea.style.height = 'auto'; // 높이 초기화
+    textarea.style.height = textarea.scrollHeight + 'px'; // 내용 높이에 맞춰 재설정
+}
+
+// 페이지 로드 시 기존 내용이 있으면 높이 조절
+window.onload = function() {
+    document.querySelectorAll('textarea').forEach(textarea => {
+        autoResize(textarea);
+    });
+};
+
+/* --- 스크립트 로직 (확정된 알고리즘 유지) --- */
+let seniorColors = {}; let juniorColors = {}; let colorEnabled = true; let highlightedPerson = null;
+
+function addHistoryToCounts(text, countsObj) {
+    text.split(/[,\n]/).map(v => v.trim()).filter(Boolean).forEach(name => {
+        countsObj[name] = (countsObj[name] || 0) + 1;
+    });
+}
+
+function generateRoleColors(names) {
+    const colors = {};
+    names.forEach((name, index) => {
+        const hue = Math.round((360 / names.length) * index);
+        colors[name] = `hsl(${hue}, 70%, 90%)`;
+    });
+    return colors;
+}
+
+function toggleColor() {
+    colorEnabled = !colorEnabled;
+    document.querySelectorAll(".person-cell").forEach(td => {
+        td.style.backgroundColor = colorEnabled ? td.dataset.color : "#fff";
+    });
+}
+
+function highlightPerson(name) {
+    const cells = document.querySelectorAll(".person-cell");
+    if (highlightedPerson === name) {
+        highlightedPerson = null;
+        cells.forEach(td => td.classList.remove("highlight", "dimmed"));
+        return;
+    }
+    highlightedPerson = name;
+    cells.forEach(td => {
+        if (td.dataset.name === name) { td.classList.add("highlight"); td.classList.remove("dimmed"); }
+        else { td.classList.remove("highlight"); td.classList.add("dimmed"); }
+    });
+}
+
+function isBlocked(type, slot) {
+    if (type === "외출") return [6, 7, 8].includes(slot);
+    if (type === "외진") return slot >= 1 && slot <= 6;
+    if (type === "사격") return slot >= 1 && slot <= 5;
+    return false;
+}
+
+function generate() {
+    highlightedPerson = null;
+    const seniors = document.getElementById("seniors").value.split(",").map(v => v.trim()).filter(Boolean);
+    const juniors = document.getElementById("juniors").value.split(",").map(v => v.trim()).filter(Boolean);
+    
+    if (seniors.length === 0 || juniors.length === 0) { alert("명단을 입력해주세요!"); return; }
+    
+    const forbidden = new Set(document.getElementById("forbidden").value.split("\n").map(v => v.trim()).filter(v => v.includes(",")));
+    seniorColors = generateRoleColors(seniors); juniorColors = generateRoleColors(juniors);
+    
+    const countTotal = {}; const slotHistory = {}; const pairHistory = {};
+    [...seniors, ...juniors].forEach(name => {
+        countTotal[name] = 0; slotHistory[name] = {};
+        for(let i=1; i<=12; i++) slotHistory[name][i] = 0;
+    });
+
+    addHistoryToCounts(document.getElementById("prevSeniors").value, countTotal);
+    addHistoryToCounts(document.getElementById("prevJuniors").value, countTotal);
+
+    const days = parseInt(document.getElementById("days").value);
+    const cooldownS = parseInt(document.getElementById("cooldownS").value);
+    const cooldownJ = parseInt(document.getElementById("cooldownJ").value);
+    const lastGlobalS = {}; const lastGlobalJ = {};
+
+    [...seniors, ...juniors].forEach(name => { lastGlobalS[name] = -999; lastGlobalJ[name] = -999; });
+
+    const conditionMap = {};
+    document.getElementById("conditions").value.split("/").forEach(v => {
+        const parts = v.split(",").map(x => x.trim());
+        if (parts.length === 3) { if(!conditionMap[parts[0]]) conditionMap[parts[0]] = {}; conditionMap[parts[0]][parts[1]] = parts[2]; }
+    });
+
+    let globalSlot = 0; let output = ""; let yesterday7Set = new Set();
+
+    for (let day = 1; day <= days; day++) {
+        const dailyCount = {}; [...seniors, ...juniors].forEach(n => dailyCount[n] = 0);
+        const nightUsedS = new Set(), nightUsedJ = new Set();
+        let today7Set = new Set();
+
+        output += `<h2 style="font-size:1.1rem; margin-top:35px; border-left: 5px solid #4CAF50; padding-left: 10px; color:#1a2a6c;">🗓 ${day}일차</h2>`;
+        output += `<table><tr><th style="width:15%">슬롯</th><th style="width:42.5%">사수</th><th style="width:42.5%">부사수</th></tr>`;
+
+        for (let slot = 1; slot <= 12; slot++) {
+            globalSlot++;
+            
+            const sCandidates = seniors.filter(name => {
+                if (globalSlot - lastGlobalS[name] <= cooldownS) return false;
+                if (slot >= 9 && nightUsedS.has(name)) return false;
+                if (yesterday7Set.has(name)) {
+                    if (seniors.length === 6) { if (slot === 7) return false; }
+                    else { if ([6, 7, 8].includes(slot)) return false; }
+                }
+                return !isBlocked(conditionMap[day]?.[name], slot);
+            }).sort((a,b) => dailyCount[a]-dailyCount[b] || slotHistory[a][slot]-slotHistory[b][slot] || countTotal[a]-countTotal[b]);
+
+            let selectedS = sCandidates[0] || seniors[0];
+
+            const jCandidates = juniors.filter(name => {
+                if (globalSlot - lastGlobalJ[name] <= cooldownJ) return false;
+                if (slot >= 9 && nightUsedJ.has(name)) return false;
+                if (yesterday7Set.has(name)) {
+                    if (juniors.length === 6) { if (slot === 7) return false; }
+                    else { if ([6, 7, 8].includes(slot)) return false; }
+                }
+                if (forbidden.has(`${selectedS},${name}`)) return false;
+                return !isBlocked(conditionMap[day]?.[name], slot);
+            }).sort((a,b) => {
+                const pKeyA = `${selectedS}-${a}`, pKeyB = `${selectedS}-${b}`;
+                const pCntA = pairHistory[pKeyA] || 0, pCntB = pairHistory[pKeyB] || 0;
+                if (pCntA >= 3 && pCntB < 3) return 1; if (pCntB >= 3 && pCntA < 3) return -1;
+                return dailyCount[a]-dailyCount[b] || slotHistory[a][slot]-slotHistory[b][slot] || countTotal[a]-countTotal[b];
+            });
+
+            let selectedJ = jCandidates[0] || juniors[0];
+
+            if (slot === 7) { today7Set.add(selectedS); today7Set.add(selectedJ); }
+            const pairKey = `${selectedS}-${selectedJ}`;
+            pairHistory[pairKey] = (pairHistory[pairKey] || 0) + 1;
+            if(pairHistory[pairKey] >= 4) pairHistory[pairKey] = 0;
+
+            countTotal[selectedS]++; dailyCount[selectedS]++;
+            countTotal[selectedJ]++; dailyCount[selectedJ]++;
+            slotHistory[selectedS][slot]++; slotHistory[selectedJ][slot]++;
+            lastGlobalS[selectedS] = lastGlobalJ[selectedJ] = globalSlot;
+            if (slot >= 9) { nightUsedS.add(selectedS); nightUsedJ.add(selectedJ); }
+
+            const bgS = seniorColors[selectedS], bgJ = juniorColors[selectedJ];
+            output += `<tr><td style="background:#f9f9f9; font-weight:bold; color:#666;">${slot >= 9 ? '야'+(slot-8) : slot}</td>
+                       <td class="person-cell" data-name="${selectedS}" data-color="${bgS}" onclick="highlightPerson('${selectedS}')" style="background:${colorEnabled?bgS:'#fff'};">${selectedS}</td>
+                       <td class="person-cell" data-name="${selectedJ}" data-color="${bgJ}" onclick="highlightPerson('${selectedJ}')" style="background:${colorEnabled?bgJ:'#fff'};">${selectedJ}</td></tr>`;
+        }
+        output += `</table>`;
+        yesterday7Set = today7Set;
+    }
+    document.getElementById("result").innerHTML = output;
+}
+</script>
+</body>
+</html>
