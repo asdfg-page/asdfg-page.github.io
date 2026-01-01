@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>근무 매칭표 생성기</title>
     <style>
-        /* --- 기본 스타일 및 레이아웃 --- */
+        /* UI 스타일 유지 */
         body { 
             font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; 
             margin: 0; padding: 15px; 
@@ -17,205 +17,138 @@
             background: #fff; padding: 25px; 
             border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); 
         }
-
         h1 { color: #1a2a6c; font-size: 1.6rem; border-bottom: 3px solid #4CAF50; padding-bottom: 10px; margin-top: 0; }
         h3 { margin: 15px 0 5px 0; font-size: 15px; color: #2c3e50; font-weight: bold; }
         .guide-text { font-size: 11px; color: #999; margin-bottom: 5px; }
-
-        /* 입력창 크기 조절 금지 및 스타일 */
         textarea, input { 
             width: 100%; margin-bottom: 10px; 
             box-sizing: border-box; padding: 12px; 
             border: 1px solid #ddd; border-radius: 6px; 
             font-size: 14px; background: #fafafa;
             transition: border-color 0.2s;
-            resize: none; /* 사용자가 드래그로 크기 조절 불가 */
-            overflow-y: hidden; /* 스크롤바 숨김 (자바스크립트로 높이 조절) */
-            min-height: 45px; /* 최소 높이 설정 */
+            resize: none; overflow-y: hidden; min-height: 45px; 
         }
         textarea:focus, input:focus { border-color: #4CAF50; outline: none; background: #fff; }
-
-        /* --- 그리드 레이아웃 --- */
         .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-
-        /* --- 버튼 스타일 (높이 75px 반영) --- */
-        .btn-group { 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            gap: 12px; 
-            margin: 30px 0; 
-        }
-
+        .btn-group { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 30px 0; }
         button { 
-            flex: 1; 
-            max-width: 300px; 
-            height: 50px;  
-            min-height: 50px; 
-            font-size: 18px; 
-            cursor: pointer; 
-            border: none; 
-            border-radius: 12px; 
-            font-weight: 800; 
-            transition: all 0.2s ease-in-out;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            flex: 1; max-width: 300px; height: 50px; min-height: 50px; font-size: 18px; 
+            cursor: pointer; border: none; border-radius: 12px; font-weight: 800; 
+            transition: all 0.2s ease-in-out; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-
         button:active { transform: translateY(2px); box-shadow: 0 2px 3px rgba(0,0,0,0.1); }
-        
         button:first-child { background-color: #4CAF50; color: white; }
+        #viewToggle { background-color: #9b59b6; color: white; }
         #colorToggle { background-color: #3498db; color: white; }
 
-        /* --- 반응형 브레이크 포인트 --- */
+        .table-wrapper { width: 100%; overflow-x: auto; margin-top: 20px; border-radius: 8px; border: 1px solid #eee; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 50px; table-layout: auto; }
+        th, td { border: 1px solid #eee; text-align: center; padding: 12px 10px; }
+        th { background: #f8f9fa; color: #666; font-size: 14px; white-space: nowrap; }
+
+        .person-cell { cursor: pointer; font-weight: bold; position: relative; transition: background-color 0.2s; }
+        .highlight { outline: 3px solid #333; z-index: 5; transform: scale(1.02); }
+        .dimmed { opacity: 0.2; }
+        .night-text { color: red; display: block; font-weight: bold; }
+        .day-text { display: block; font-weight: bold; }
+
+        /* 개인별 근무 현황 칸 너비 50px 고정 설정 */
+        #individualResult table {
+            table-layout: fixed;
+            width: max-content;
+            min-width: 100%;
+        }
+        #individualResult th, #individualResult td {
+            width: 50px;
+            padding: 10px 2px;
+            font-size: 12px;
+            word-break: break-all;
+        }
+        #individualResult th:first-child, #individualResult td:first-child {
+            width: 60px; /* 일자 칸은 조금 더 넓게 */
+        }
+
         @media (max-width: 767px) {
             .input-grid { grid-template-columns: 1fr; gap: 10px; }
             .btn-group { flex-direction: column; }
             button { max-width: 100%; width: 100%; height: 70px; }
-            h1 { font-size: 1.3rem; }
         }
-
-        /* --- 테이블 스타일 --- */
-        .note { 
-            font-size: 13px; color: #555; background: #e8f5e9; 
-            padding: 15px; border-radius: 8px; margin-bottom: 20px;
-            border-left: 5px solid #4CAF50;
-        }
-        .table-wrapper { width: 100%; overflow-x: hidden; margin-top: 20px; }
-        table { border-collapse: collapse; width: 100%; table-layout: fixed; margin-bottom: 50px; }
-        th, td { border: 1px solid #eee; text-align: center; padding: 10px 6px; }
-        th { background: #f8f9fa; color: #666; font-size: 14px; }
-        
-        .person-cell { cursor: pointer; font-weight: bold; position: relative; transition: background-color 0.2s; }
-        .highlight { outline: 3px solid #333; z-index: 5; transform: scale(1.02); }
-        .dimmed { opacity: 0.2; }
     </style>
 </head>
 <body>
-
 <div class="container">
-    <h1>근무 매칭표 생성기</h1>
-
+    <h1>근무 매칭표 생성기 (최종본)</h1>
     <div class="input-grid">
         <div>
-            <h3>현시점 사수 명단</h3>
-            <div class="guide-text">쉼표(,)로 구분</div>
-            <textarea id="seniors" placeholder="예: 김사수, 이사수, 박사수, 최사수, 정사수, 강사수" oninput="autoResize(this)"></textarea>
+            <h3>현시점 사수 명단 (쉼표 구분)</h3>
+            <textarea id="seniors" placeholder="예) 이사수, 김사수, 박사수" oninput="autoResize(this)"></textarea>
         </div>
         <div>
-            <h3>현시점 부사수 명단</h3>
-            <div class="guide-text">쉼표(,)로 구분</div>
-            <textarea id="juniors" placeholder="예: 박부사, 최부사, 정부사, 강부사, 조부사, 윤부사" oninput="autoResize(this)"></textarea>
+            <h3>현시점 부사수 명단 (쉼표 구분)</h3>
+            <textarea id="juniors" placeholder="예) 정부사, 강부사, 조부사" oninput="autoResize(this)"></textarea>
         </div>
-        <div>
-            <h3>이전 사수 기록 (누적)</h3>
-            <div class="guide-text">이전 명단 복사 붙여넣기</div>
-            <textarea id="prevSeniors" placeholder="기록이 많을수록 이번 배정 후순위" oninput="autoResize(this)"></textarea>
-        </div>
-        <div>
-            <h3>이전 부사수 기록 (누적)</h3>
-            <div class="guide-text">이전 명단 복사 붙여넣기</div>
-            <textarea id="prevJuniors" placeholder="기록이 많을수록 이번 배정 후순위" oninput="autoResize(this)"></textarea>
-        </div>
-        <div>
-            <h3>같이 못 타는 조합</h3>
-            <div class="guide-text">사수명,부사수명 (줄바꿈 구분)</div>
-            <textarea id="forbidden" placeholder="김사수,박부사" oninput="autoResize(this)"></textarea>
-        </div>
+        <div><h3>이전 사수 기록</h3><textarea id="prevSeniors" oninput="autoResize(this)"></textarea></div>
+        <div><h3>이전 부사수 기록</h3><textarea id="prevJuniors" oninput="autoResize(this)"></textarea></div>
+        <div><h3>같이 못 타는 조합 (사수,부사수)</h3><textarea id="forbidden" placeholder="예) 김사수,정부사" oninput="autoResize(this)"></textarea></div>
         <div class="input-grid" style="gap:10px;">
-            <div>
-                <h3>생성 일수</h3>
-                <input type="number" id="days" value="7">
-            </div>
-            <div>
-                <h3>사수/부사수 텀 (Cooldown)</h3>
-                <div style="display:flex; gap:5px;">
-                    <input type="number" id="cooldownS" value="2" title="사수 텀">
-                    <input type="number" id="cooldownJ" value="2" title="부사수 텀">
-                </div>
-            </div>
+            <div><h3>생성 일수</h3><input type="number" id="days" value="7"></div>
+            <div><h3>사수/부사수 텀</h3><div style="display:flex; gap:5px;"><input type="number" id="cooldownS" value="2"><input type="number" id="cooldownJ" value="2"></div></div>
         </div>
     </div>
-
-    <h3>날짜별 특이사항</h3>
-    <div class="guide-text">1,이사수,외출 / 2,김부사,사격 (슬래시 / 구분)</div>
-    <textarea id="conditions" placeholder="예: 1,이사수,외출 / 3,정부사,사격" oninput="autoResize(this)"></textarea>
-
+    <h3>날짜별 특이사항 (일자,이름,사유 / 구분)</h3>
+    <textarea id="conditions" placeholder="예) 1,이사수,외출 / 2,김부사,사격" oninput="autoResize(this)"></textarea>
     <div class="btn-group">
         <button onclick="generate()">✨ 근무표 생성</button>
+        <button id="viewToggle" onclick="toggleView()">🔄 개인별 분기</button>
         <button id="colorToggle" onclick="toggleColor()">🎨 색상 On/Off</button>
     </div>
-
     <div id="result" class="table-wrapper"></div>
+    <div id="individualResult" class="table-wrapper" style="display:none;"></div>
 </div>
 
 <script>
-/* --- 입력창 자동 높이 조절 함수 --- */
-function autoResize(textarea) {
-    textarea.style.height = 'auto'; // 높이 초기화
-    textarea.style.height = textarea.scrollHeight + 'px'; // 내용 높이에 맞춰 재설정
+let seniorColors = {}; let juniorColors = {}; let colorEnabled = true; let highlightedPerson = null; let currentMode = "normal";
+
+function autoResize(textarea) { textarea.style.height = 'auto'; textarea.style.height = textarea.scrollHeight + 'px'; }
+function addHistoryToCounts(text, countsObj) { text.split(/[,\n]/).map(v => v.trim()).filter(Boolean).forEach(name => { countsObj[name] = (countsObj[name] || 0) + 1; }); }
+function generateRoleColors(names) { const colors = {}; names.forEach((name, index) => { const hue = Math.round((360 / (names.length || 1)) * index); colors[name] = `hsl(${hue}, 70%, 90%)`; }); return colors; }
+function toggleColor() { colorEnabled = !colorEnabled; document.querySelectorAll(".person-cell").forEach(td => { td.style.backgroundColor = colorEnabled ? td.dataset.color : "#fff"; }); }
+function highlightPerson(name) { const cells = document.querySelectorAll(".person-cell"); if (highlightedPerson === name) { highlightedPerson = null; cells.forEach(td => td.classList.remove("highlight", "dimmed")); return; } highlightedPerson = name; cells.forEach(td => { if (td.dataset.name === name) { td.classList.add("highlight"); td.classList.remove("dimmed"); } else { td.classList.remove("highlight"); td.classList.add("dimmed"); } }); }
+function isBlocked(type, slot) { if (type === "외출") return [6, 7, 8].includes(slot); if (type === "외진") return slot >= 1 && slot <= 6; if (type === "사격") return slot >= 1 && slot <= 5; return false; }
+
+function toggleView() {
+    const res = document.getElementById("result"), ind = document.getElementById("individualResult"), btn = document.getElementById("viewToggle");
+    if (currentMode === "normal") { if (!res.innerHTML) { alert("먼저 근무표를 생성해주세요!"); return; } renderIndividual(); res.style.display = "none"; ind.style.display = "block"; btn.innerText = "📋 전체 근무표 보기"; currentMode = "individual"; }
+    else { res.style.display = "block"; ind.style.display = "none"; btn.innerText = "🔄 개인별 분기"; currentMode = "normal"; }
 }
 
-// 페이지 로드 시 기존 내용이 있으면 높이 조절
-window.onload = function() {
-    document.querySelectorAll('textarea').forEach(textarea => {
-        autoResize(textarea);
-    });
-};
-
-/* --- 스크립트 로직 (확정된 알고리즘 유지) --- */
-let seniorColors = {}; let juniorColors = {}; let colorEnabled = true; let highlightedPerson = null;
-
-function addHistoryToCounts(text, countsObj) {
-    text.split(/[,\n]/).map(v => v.trim()).filter(Boolean).forEach(name => {
-        countsObj[name] = (countsObj[name] || 0) + 1;
-    });
-}
-
-function generateRoleColors(names) {
-    const colors = {};
-    names.forEach((name, index) => {
-        const hue = Math.round((360 / names.length) * index);
-        colors[name] = `hsl(${hue}, 70%, 90%)`;
-    });
-    return colors;
-}
-
-function toggleColor() {
-    colorEnabled = !colorEnabled;
-    document.querySelectorAll(".person-cell").forEach(td => {
-        td.style.backgroundColor = colorEnabled ? td.dataset.color : "#fff";
-    });
-}
-
-function highlightPerson(name) {
-    const cells = document.querySelectorAll(".person-cell");
-    if (highlightedPerson === name) {
-        highlightedPerson = null;
-        cells.forEach(td => td.classList.remove("highlight", "dimmed"));
-        return;
+function renderIndividual() {
+    const seniors = document.getElementById("seniors").value.split(",").map(v => v.trim()).filter(Boolean);
+    const juniors = document.getElementById("juniors").value.split(",").map(v => v.trim()).filter(Boolean);
+    const allNames = [...new Set([...seniors, ...juniors])];
+    const days = parseInt(document.getElementById("days").value);
+    let html = `<h3>👤 개인별 근무 현황 (야간은 빨간색)</h3><table><thead><tr><th>일자 / 이름</th>`;
+    allNames.forEach(name => { html += `<th>${name}</th>`; });
+    html += `</tr></thead><tbody>`;
+    for(let d=1; d<=days; d++) {
+        html += `<tr><td>${d}일</td>`;
+        allNames.forEach(name => {
+            let dS = [], nS = [], tables = document.querySelectorAll("#result table"), dayT = tables[d-1];
+            if (dayT) { dayT.querySelectorAll("tr").forEach((row, idx) => { if (idx > 0 && (row.cells[1].innerText === name || row.cells[2].innerText === name)) { const s = row.cells[0].innerText; if (s.includes("야")) nS.push(s.replace("야", "")); else dS.push(s); } }); }
+            let content = dS.length > 0 ? `<span class="day-text">${dS.join(", ")}</span>` : "";
+            if (nS.length > 0) content += `<span class="night-text">${nS.join(", ")}</span>`;
+            html += `<td>${content || "-"}</td>`;
+        });
+        html += `</tr>`;
     }
-    highlightedPerson = name;
-    cells.forEach(td => {
-        if (td.dataset.name === name) { td.classList.add("highlight"); td.classList.remove("dimmed"); }
-        else { td.classList.remove("highlight"); td.classList.add("dimmed"); }
-    });
-}
-
-function isBlocked(type, slot) {
-    if (type === "외출") return [6, 7, 8].includes(slot);
-    if (type === "외진") return slot >= 1 && slot <= 6;
-    if (type === "사격") return slot >= 1 && slot <= 5;
-    return false;
+    html += `</tbody></table>`;
+    document.getElementById("individualResult").innerHTML = html;
 }
 
 function generate() {
     highlightedPerson = null;
     const seniors = document.getElementById("seniors").value.split(",").map(v => v.trim()).filter(Boolean);
     const juniors = document.getElementById("juniors").value.split(",").map(v => v.trim()).filter(Boolean);
-    
     if (seniors.length === 0 || juniors.length === 0) { alert("명단을 입력해주세요!"); return; }
     
     const forbidden = new Set(document.getElementById("forbidden").value.split("\n").map(v => v.trim()).filter(v => v.includes(",")));
@@ -234,7 +167,6 @@ function generate() {
     const cooldownS = parseInt(document.getElementById("cooldownS").value);
     const cooldownJ = parseInt(document.getElementById("cooldownJ").value);
     const lastGlobalS = {}; const lastGlobalJ = {};
-
     [...seniors, ...juniors].forEach(name => { lastGlobalS[name] = -999; lastGlobalJ[name] = -999; });
 
     const conditionMap = {};
@@ -264,7 +196,13 @@ function generate() {
                     else { if ([6, 7, 8].includes(slot)) return false; }
                 }
                 return !isBlocked(conditionMap[day]?.[name], slot);
-            }).sort((a,b) => dailyCount[a]-dailyCount[b] || slotHistory[a][slot]-slotHistory[b][slot] || countTotal[a]-countTotal[b]);
+            }).sort((a,b) => {
+                if (seniors.length <= 6) {
+                    if (dailyCount[a] < 2 && dailyCount[b] >= 2) return -1;
+                    if (dailyCount[b] < 2 && dailyCount[a] >= 2) return 1;
+                }
+                return dailyCount[a]-dailyCount[b] || slotHistory[a][slot]-slotHistory[b][slot] || countTotal[a]-countTotal[b];
+            });
 
             let selectedS = sCandidates[0] || seniors[0];
 
@@ -278,6 +216,10 @@ function generate() {
                 if (forbidden.has(`${selectedS},${name}`)) return false;
                 return !isBlocked(conditionMap[day]?.[name], slot);
             }).sort((a,b) => {
+                if (juniors.length <= 6) {
+                    if (dailyCount[a] < 2 && dailyCount[b] >= 2) return -1;
+                    if (dailyCount[b] < 2 && dailyCount[a] >= 2) return 1;
+                }
                 const pKeyA = `${selectedS}-${a}`, pKeyB = `${selectedS}-${b}`;
                 const pCntA = pairHistory[pKeyA] || 0, pCntB = pairHistory[pKeyB] || 0;
                 if (pCntA >= 3 && pCntB < 3) return 1; if (pCntB >= 3 && pCntA < 3) return -1;
@@ -306,7 +248,12 @@ function generate() {
         yesterday7Set = today7Set;
     }
     document.getElementById("result").innerHTML = output;
+    document.getElementById("result").style.display = "block";
+    document.getElementById("individualResult").style.display = "none";
+    document.getElementById("viewToggle").innerText = "🔄 개인별 분기";
+    currentMode = "normal";
 }
+window.onload = function() { document.querySelectorAll('textarea').forEach(textarea => autoResize(textarea)); };
 </script>
 </body>
 </html>
